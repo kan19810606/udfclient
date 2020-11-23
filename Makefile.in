@@ -1,0 +1,88 @@
+#
+# UDFclient toolkit
+#
+# Copyright 2003,2004,2005 Reinoud P.Zandijk
+#
+#
+# File $Id: Makefile.in,v 1.24 2017/01/10 09:52:30 reinoud Exp $ $Name:  $
+#
+
+srcdir=		@srcdir@
+
+prefix=		@prefix@
+exec_prefix=	@exec_prefix@
+sbindir=	@sbindir@
+mandir=		@mandir@
+bindir=		@bindir@
+datarootdir=	@datarootdir@
+
+CC=		@CC@
+LD=		$(CC)
+CPPFLAGS=	@CPPFLAGS@ @DEFS@ -I$(srcdir)
+CFLAGS=		@CFLAGS@
+LDFLAGS=	@LDFLAGS@
+
+INSTALL=	@INSTALL@
+
+# NetBSD
+#CFLAGS+= -Wall \
+#	 -Wuninitialized \
+#	 -fno-strict-aliasing \
+#	 -Wextra -Werror
+#	 -Werror ${COPTS} \
+#	 -DNDEBUG
+
+# Anonymising this client (for comformity)
+#CFLAGS+= -D__ANONYMOUSUDF__
+
+#CFLAGS+= -fPIC -DPIC
+POSTOBJ+= @SCSI_LIB@ @THREADLIB@ @TIMELIB@
+
+
+# For use with the cpuflags package
+#CPROCFLAGS != cpuflags
+CFLAGS+= ${CPROCFLAGS}
+
+
+# Main programs
+APPS=		udfdump udfclient newfs_udf cd_sessions
+SCSI_APPS=	cd_disect mmc_format
+LIB=		osta.o udf.o udf_bmap.o udf_allocentries.o udf_discop.o uio.o
+LIB+=		udf_verbose.o udf_readwrite.o udf_unix.o vfs_dirhash.o
+USCSILIB=	uscsi_sense.o uscsi_subr.o
+
+CFLAGS+= -DNEEDS_ISPRINT $(CPPFLAGS)
+
+all: @BUILD_APPS@
+
+install: @BUILD_APPS@
+	$(INSTALL) -d $(DESTDIR)/$(bindir)
+	for app in @BUILD_APPS@; do \
+		echo "$(INSTALL) $$app $(DESTDIR)/$(bindir)/$$app"; \
+		$(INSTALL) $$app $(DESTDIR)/$(bindir)/$$app; \
+	done
+
+depend:
+	mkdep $(CFLAGS) *.c
+
+clean:
+	rm -f *.o *.a *.core core.* core .depend *~ *.bak $(APPS) $(SCSI_APPS)
+	rm -fr autom*.cache config.log config.status configure.lineno
+
+cleandir: clean
+	rm -f Makefile
+
+libuscsi.a: $(USCSILIB)
+	ar -rsc libuscsi.a $(USCSILIB)
+
+libudf.a: $(LIB)
+	ar -rsc libudf.a $(LIB)
+
+$(SCSI_APPS): $(.TARGET).o libuscsi.a
+	$(LD) -o $(.TARGET) $(LDFLAGS) $(.TARGET).o libuscsi.a $(POSTOBJ)
+
+$(APPS): $(.TARGET).o libuscsi.a libudf.a
+	$(LD) -o $(.TARGET) $(LDFLAGS) $(.TARGET).o libudf.a libuscsi.a $(POSTOBJ)
+
+
+# DO NOT DELETE
